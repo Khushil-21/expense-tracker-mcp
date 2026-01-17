@@ -25,8 +25,7 @@ async def init_db():
         )
         await db.commit()
 
-
-asyncio.run(init_db())
+init_db()
 
 
 @mcp.tool()
