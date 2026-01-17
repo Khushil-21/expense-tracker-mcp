@@ -107,4 +107,8 @@ def categories():
 
 
 if __name__ == "__main__":
-    mcp.run()
+    # this is for local server
+    # mcp.run()
+    
+    # for remote server 
+    mcp.run(transport="http",host="0.0.0.0",port=8000)
