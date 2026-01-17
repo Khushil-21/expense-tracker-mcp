@@ -25,7 +25,7 @@ def init_db():
 init_db()
 
 
-@mcp.tool
+@mcp.tool()
 def add_expense(date:str, amount:float, category:str, subcategory:str="", note:str=""):
     """Add new expense to DB"""
     with sqlite3.connect(DB_PATH) as db:
@@ -36,7 +36,7 @@ def add_expense(date:str, amount:float, category:str, subcategory:str="", note:s
     return {"status": "ok", "id": cur.lastrowid}
 
 
-@mcp.tool
+@mcp.tool()
 def list_expense():
     """list all the expense from the DB"""
     with sqlite3.connect(DB_PATH) as db:
