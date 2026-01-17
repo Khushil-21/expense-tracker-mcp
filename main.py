@@ -2,13 +2,17 @@ from fastmcp import FastMCP
 import os
 import sqlite3
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "expenses.db")
+# Writable temp directory (NOT persistent)
+DB_PATH = "/tmp/expenses.db"
 CATEGORIES_PATH = os.path.join(os.path.dirname(__file__), "categories.json")
 
 mcp = FastMCP("Expense Tracker")
 
 
 def init_db():
+    # Ensure directory exists (not strictly needed for /tmp but safe)
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+
     with sqlite3.connect(DB_PATH) as db:
         db.execute(
             """
@@ -23,23 +27,25 @@ def init_db():
         """
         )
 
-
 init_db()
 
 
 @mcp.tool()
-def add_expense(date:str, amount:float, category:str, subcategory:str="", note:str=""):
+def add_expense(
+    date: str, amount: float, category: str, subcategory: str = "", note: str = ""
+):
     """Add new expense to DB"""
     with sqlite3.connect(DB_PATH) as db:
         cur = db.execute(
-            "INSERT INTO expenses(date,amount,category,subcategory,note) VALUES (?,?,?,?,?)",
+            "INSERT INTO expenses(date, amount, category, subcategory, note) VALUES (?, ?, ?, ?, ?)",
             (date, amount, category, subcategory, note),
         )
     return {"status": "ok", "id": cur.lastrowid}
 
+
 @mcp.tool()
 def list_all_expense():
-    """list all the expense from the DB"""
+    """List all expenses from the DB"""
     with sqlite3.connect(DB_PATH) as db:
         cur = db.execute(
             """
@@ -51,42 +57,38 @@ def list_all_expense():
         cols = [d[0] for d in cur.description]
         rows = cur.fetchall()
 
-        return [dict(zip(cols, r)) for r in rows]
+    return [dict(zip(cols, r)) for r in rows]
+
 
 @mcp.tool()
 def list_dated_expense(start_date: str, end_date: str):
-    """List all expenses from the DB within a date range.
-    
-    Args:
-        start_date: Start date in YYYY-MM-DD format
-        end_date: End date in YYYY-MM-DD format
-    """
+    """List all expenses within a date range"""
     with sqlite3.connect(DB_PATH) as db:
         cur = db.execute(
             """
             SELECT id, date, amount, category, subcategory, note
             FROM expenses
-            WHERE date >= ? AND date <= ?
+            WHERE date BETWEEN ? AND ?
             ORDER BY date DESC
-            """,
-            (start_date, end_date)
+        """,
+            (start_date, end_date),
         )
+
         cols = [d[0] for d in cur.description]
         rows = cur.fetchall()
 
-        return [dict(zip(cols, r)) for r in rows]
+    return [dict(zip(cols, r)) for r in rows]
+
 
 @mcp.tool()
-def summarize(start_date, end_date, category=None):
-    '''Summarize expenses by category within an inclusive date range.'''
+def summarize(start_date: str, end_date: str, category: str = None):
+    """Summarize expenses by category within an inclusive date range."""
     with sqlite3.connect(DB_PATH) as c:
-        query = (
-            """
+        query = """
             SELECT category, SUM(amount) AS total_amount
             FROM expenses
             WHERE date BETWEEN ? AND ?
-            """
-        )
+        """
         params = [start_date, end_date]
 
         if category:
@@ -97,18 +99,19 @@ def summarize(start_date, end_date, category=None):
 
         cur = c.execute(query, params)
         cols = [d[0] for d in cur.description]
-        return [dict(zip(cols, r)) for r in cur.fetchall()]
+
+    return [dict(zip(cols, r)) for r in cur.fetchall()]
+
 
 @mcp.resource("expense://categories", mime_type="application/json")
 def categories():
-    # Read fresh each time so you can edit the file without restarting
     with open(CATEGORIES_PATH, "r", encoding="utf-8") as f:
         return f.read()
 
 
 if __name__ == "__main__":
-    # this is for local server
+    # Local
     # mcp.run()
-    
-    # for remote server 
-    mcp.run(transport="http",host="0.0.0.0",port=8000)
+
+    # Remote
+    mcp.run(transport="http", host="0.0.0.0", port=8000)
